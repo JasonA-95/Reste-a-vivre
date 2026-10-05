@@ -94,6 +94,7 @@ details.card[open]>summary{margin-bottom:12px}
     <div class="big" id="big">0 €</div>
     <div class="bar"><i id="hbar" style="width:0"></i></div>
     <div class="sub" id="hsub"></div>
+    <div class="sub" id="bal" style="margin-top:6px;font-size:15px;color:var(--ink)"></div>
     <div class="sub" id="al" style="font-size:14px"></div>
     <div class="sub" id="sg" style="margin-top:4px"></div>
     <div class="sub" id="bkr" style="margin-top:4px;font-size:13px;cursor:pointer"></div>
@@ -296,6 +297,15 @@ function render(){
   const ex=S.extra.filter(x=>x.d>=(st0?st0.d:iso(s))&&x.d<iso(e)).reduce((a,x)=>a+x.a,0),inc=S.income+ex;
   const bud=st0?st0.a-st0.r-S.saving+ex:inc-fixed()-S.saving;
   const allow=(bud-(spent-td))/left, rest=allow-td;
+  let balTxt='<span style="color:var(--mut);font-size:14px;cursor:pointer">Ajoute ton solde de départ (Plan) pour voir ton solde total disponible.</span>';
+  if(S.start){
+    const d0=S.start.d,sdt=parseD(d0);let pays=0;
+    for(let i=0;i<120;i++){const p=patD(sdt.getFullYear(),sdt.getMonth()+i);if(iso(p)>today)break;if(iso(p)>d0)pays++}
+    const sp2=S.tx.filter(t=>t.d>=d0).reduce((a,t)=>a+t.a,0),ex2=S.extra.filter(x=>x.d>=d0).reduce((a,x)=>a+x.a,0);
+    const bal=S.start.a-S.start.r+ex2-sp2+pays*(S.income-fixed());
+    balTxt=`Solde total disponible : <b style="color:${bal<0?'var(--bad)':'var(--ink)'}">${eur(bal)}</b>`;
+  }
+  $('bal').innerHTML=balTxt;
   $('rs0').textContent=S.start?(st0?eur(S.start.a)+' au '+S.start.d.slice(8)+'/'+S.start.d.slice(5,7):'Hors période'):'Optionnel';
   const big=$('big');
   big.setAttribute('role',S.hide?'button':'text');big.tabIndex=S.hide?0:-1;
@@ -435,6 +445,7 @@ $('gl').onchange=e=>{const i=e.target.closest('.gv');if(!i)return;const x=S.goal
 $('months').onclick=$('hist').onclick;
 $('hd').checked=S.hide;
 $('hd').onchange=e=>{S.hide=e.target.checked;peek=false;save();refresh()};
+$('bal').onclick=()=>{if(!S.start)go('plan')};
 $('big').onclick=()=>{if(!S.hide)return;peek=!peek;refresh()};
 $('big').onkeydown=e=>{if(S.hide&&(e.key==='Enter'||e.key===' ')){e.preventDefault();peek=!peek;refresh()}};
 $('bkr').onclick=()=>{go('set');$('dat').open=true};
@@ -494,7 +505,7 @@ $('sl').onclick=e=>{const b=e.target.closest('.del');if(!b)return;S.shop=S.shop.
 $('sclr').onclick=()=>{S.shop=S.shop.filter(x=>!x.ok);save();shop()};
 shop();
 const TIPS={
-"Reste à vivre aujourd'hui":"Ton budget du jour : (revenus − charges fixes − épargne − dépenses des jours précédents) ÷ jours restants jusqu'à la paie.",
+"Reste à vivre aujourd'hui":"Ton budget du jour : (revenus − charges fixes − épargne − dépenses des jours précédents) ÷ jours restants jusqu'à la paie. Le solde total disponible = solde de départ + revenus − dépenses, charges fixes à venir déduites (estimation).",
 "Nouvelle dépense":"Tu peux choisir une autre date pour noter un oubli. Les dépenses récurrentes s'ajoutent toutes seules.",
 "Courbe de la période":"Ton budget restant jour après jour. Les pointillés montrent le rythme idéal pour finir à zéro.",
 "Projection de fin de période":"Estimation de ce qu'il te restera à la prochaine paie si tu continues à dépenser au même rythme.",
