@@ -90,7 +90,7 @@ details.card[open]>summary{margin-bottom:12px}
 <main>
   <div class="tab on" id="tab-home">
   <section class="card hero" aria-live="polite">
-    <div class="lbl">Reste à vivre aujourd'hui</div>
+    <div class="lbl">Reste à vivre cette semaine</div>
     <div class="big" id="big">0 €</div>
     <div class="bar"><i id="hbar" style="width:0"></i></div>
     <div class="sub" id="hsub"></div>
@@ -296,7 +296,11 @@ function render(){
   const td=mm.filter(t=>t.d===today).reduce((s,t)=>s+t.a,0);
   const ex=S.extra.filter(x=>x.d>=(st0?st0.d:iso(s))&&x.d<iso(e)).reduce((a,x)=>a+x.a,0),inc=S.income+ex;
   const bud=st0?st0.a-st0.r-S.saving+ex:inc-fixed()-S.saving;
-  const allow=(bud-(spent-td))/left, rest=allow-td;
+  const allow=(bud-(spent-td))/left;
+  const wst=new Date(t0.getFullYear(),t0.getMonth(),t0.getDate()-((t0.getDay()+6)%7)),ps=wst>sd?wst:sd,wen=new Date(wst.getFullYear(),wst.getMonth(),wst.getDate()+7),we=wen<e?wen:e;
+  const nW=Math.max(1,Math.round((we-ps)/864e5)),lfp=Math.max(1,Math.round((e-ps)/864e5));
+  const spB=mm.filter(t=>t.d<iso(ps)).reduce((a,t)=>a+t.a,0),spW=mm.filter(t=>t.d>=iso(ps)&&t.d<iso(we)).reduce((a,t)=>a+t.a,0);
+  const allowW=(bud-spB)/lfp*nW,restW=allowW-spW;
   let balTxt='<span style="color:var(--mut);font-size:14px;cursor:pointer">Ajoute ton solde de départ (Plan) pour voir ton solde total disponible.</span>';
   if(S.start){
     const d0=S.start.d,sdt=parseD(d0);let pays=0;
@@ -309,19 +313,19 @@ function render(){
   $('rs0').textContent=S.start?(st0?eur(S.start.a)+' au '+S.start.d.slice(8)+'/'+S.start.d.slice(5,7):'Hors période'):'Optionnel';
   const big=$('big');
   big.setAttribute('role',S.hide?'button':'text');big.tabIndex=S.hide?0:-1;
-  big.textContent=eur(rest);
-  big.style.color=rest<0?'var(--bad)':(allow>0&&rest<allow*.25?'var(--warn)':'var(--ok)');
+  big.textContent=eur(restW);
+  big.style.color=restW<0?'var(--bad)':(allowW>0&&restW<allowW*.25?'var(--warn)':'var(--ok)');
   const bd2=S.lastBk?Math.floor((t0-parseD(S.lastBk))/864e5):null;
   $('bkr').innerHTML=(S.tx.length>=5||S.lastBk)?(bd2==null?'<b style="color:var(--warn)">Pas encore de sauvegarde. Touche pour en faire une.</b>':`<span style="color:${bd2>30?'var(--warn)':'var(--mut)'}">Dernière sauvegarde : ${bd2<=0?"aujourd'hui":'il y a '+bd2+' jour'+(bd2>1?'s':'')}${bd2>30?'. Pense à en refaire une.':''}</span>`):'';
-  $('hbar').style.width=(allow>0?Math.min(100,td/allow*100):(td>0?100:0))+'%';
-  $('hbar').style.background=rest<0?'var(--bad)':'var(--acc)';
+  $('hbar').style.width=(allowW>0?Math.min(100,spW/allowW*100):(spW>0?100:0))+'%';
+  $('hbar').style.background=restW<0?'var(--bad)':'var(--acc)';
   $('hsub').textContent=(S.income>0||st0)
-    ? `Tu peux dépenser ${eur(Math.max(allow,0))} aujourd'hui. Il reste ${eur(bud-spent)}${S.saving>0?' (épargne de '+eur(S.saving)+' déjà déduite)':''} pour ${left} jour${left>1?'s':''}, jusqu'à la paie du ${p2(e.getDate())}/${p2(e.getMonth()+1)}.`
+    ? `Tu peux dépenser ${eur(Math.max(allowW,0))} cette semaine${nW<7?` (${nW} jour${nW>1?'s':''})`:''}. Il reste ${eur(bud-spent)}${S.saving>0?' (épargne de '+eur(S.saving)+' déjà déduite)':''} pour ${left} jour${left>1?'s':''}, jusqu'à la paie du ${p2(e.getDate())}/${p2(e.getMonth()+1)}.`
     : 'Renseigne tes revenus et tes charges fixes dans Plan pour calculer ton budget du jour.';
   const dt=Math.round((e-sd)/864e5),el=Math.max(1,dt-left+1),pj=$('pj');
   if((S.income>0||st0)&&spent>0){
     const rate=spent/el,fin=bud-rate*dt,dd=p2(e.getDate())+'/'+p2(e.getMonth()+1);
-    pj.innerHTML=`À ton rythme actuel (${eur(rate)} par jour), ${fin>=0?'il te restera':'il te manquera'} <b style="color:${fin>=0?'var(--ok)':'var(--bad)'}">${eur(Math.abs(fin))}</b> à la paie du ${dd}.<div class="sub">Pour tenir, dépense au maximum ${eur(Math.max(allow,0))} par jour jusqu'à la paie.${S.saving>0?' Ton épargne de '+eur(S.saving)+' est déjà prise en compte.':''}</div>`;
+    pj.innerHTML=`À ton rythme actuel (${eur(rate*7)} par semaine), ${fin>=0?'il te restera':'il te manquera'} <b style="color:${fin>=0?'var(--ok)':'var(--bad)'}">${eur(Math.abs(fin))}</b> à la paie du ${dd}.<div class="sub">Pour tenir, dépense au maximum ${eur(Math.max(allow*7,0))} par semaine jusqu'à la paie.${S.saving>0?' Ton épargne de '+eur(S.saving)+' est déjà prise en compte.':''}</div>`;
   }else pj.innerHTML='<span class="empty">'+((S.income>0||st0)?'Ajoute une première dépense pour voir la projection.':'Renseigne tes revenus dans Plan pour voir la projection.')+'</span>';
   const al=S.cats.map(c=>({c,sp:m.filter(t=>t.c===c.n).reduce((a,t)=>a+t.a,0)})).filter(x=>x.c.b>0&&x.sp>=x.c.b*.8);
   $('al').innerHTML=al.length?'À surveiller : '+al.map(x=>{const o=x.sp>x.c.b;return `<b style="color:${o?'var(--bad)':'var(--warn)'}">${ico(x.c.n)} ${esc(x.c.n)} ${o?'dépassé':Math.round(x.sp/x.c.b*100)+' %'}</b>`}).join(' · '):'';
@@ -505,7 +509,7 @@ $('sl').onclick=e=>{const b=e.target.closest('.del');if(!b)return;S.shop=S.shop.
 $('sclr').onclick=()=>{S.shop=S.shop.filter(x=>!x.ok);save();shop()};
 shop();
 const TIPS={
-"Reste à vivre aujourd'hui":"Ton budget du jour : (revenus − charges fixes − épargne − dépenses des jours précédents) ÷ jours restants jusqu'à la paie. Le solde total disponible = solde de départ + revenus − dépenses, charges fixes à venir déduites (estimation).",
+"Reste à vivre cette semaine":"Ton budget de la semaine, du lundi au dimanche (ou jusqu'à la paie) : (revenus − charges fixes − épargne − dépenses des semaines précédentes) ÷ jours restants × jours de la semaine. Le solde total disponible = solde de départ + revenus − dépenses, charges fixes à venir déduites (estimation).",
 "Nouvelle dépense":"Tu peux choisir une autre date pour noter un oubli. Les dépenses récurrentes s'ajoutent toutes seules.",
 "Courbe de la période":"Ton budget restant jour après jour. Les pointillés montrent le rythme idéal pour finir à zéro.",
 "Projection de fin de période":"Estimation de ce qu'il te restera à la prochaine paie si tu continues à dépenser au même rythme.",
@@ -571,7 +575,7 @@ $('bcsv').onclick=async()=>{
 };
 $('bfile').onchange=e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{$('bk').value=String(rd.result);armedR=false;bm('Fichier chargé. Touche « Restaurer » deux fois pour confirmer.')};rd.readAsText(f)};
 const OB=[
-['👋','Bienvenue','Cette appli répond à une seule question : combien puis-je dépenser aujourd\'hui sans stress ? Elle le calcule à partir de ta paie et de tes charges.'],
+['👋','Bienvenue','Cette appli répond à une seule question : combien puis-je dépenser cette semaine sans stress ? Elle le calcule à partir de ta paie et de tes charges.'],
 ['🗓️','Commence par le Plan','Dans l\'onglet Plan, indique le jour et le montant de ta paie, puis tes charges fixes (loyer, factures…). Tu peux aussi fixer une épargne.'],
 ['🛒','Note tes dépenses','Sur l\'Accueil, saisis un montant et une catégorie en quelques secondes. Ta liste de courses peut s\'enregistrer en une seule dépense. Les petits ⓘ expliquent chaque fonction.'],
 ['🔒','Tes données restent chez toi','Rien n\'est envoyé ailleurs : tout reste sur ton téléphone. Pense à faire une sauvegarde de temps en temps, dans Réglages › Données.'],
