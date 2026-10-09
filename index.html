@@ -90,7 +90,7 @@ details.card[open]>summary{margin-bottom:12px}
 <main>
   <div class="tab on" id="tab-home">
   <section class="card hero" aria-live="polite">
-    <div class="lbl">Reste à vivre cette semaine</div>
+    <div class="lbl" id="budget-label">Reste jusqu'à la paie</div>
     <div class="big" id="big">0 €</div>
     <div class="bar"><i id="hbar" style="width:0"></i></div>
     <div class="sub" id="hsub"></div>
@@ -297,10 +297,8 @@ function render(){
   const ex=S.extra.filter(x=>x.d>=(st0?st0.d:iso(s))&&x.d<iso(e)).reduce((a,x)=>a+x.a,0),inc=S.income+ex;
   const bud=st0?st0.a-st0.r-S.saving+ex:inc-fixed()-S.saving;
   const allow=(bud-(spent-td))/left;
-  const wst=new Date(t0.getFullYear(),t0.getMonth(),t0.getDate()-((t0.getDay()+6)%7)),ps=wst>sd?wst:sd,wen=new Date(wst.getFullYear(),wst.getMonth(),wst.getDate()+7),we=wen<e?wen:e;
-  const nW=Math.max(1,Math.round((we-ps)/864e5)),lfp=Math.max(1,Math.round((e-ps)/864e5));
-  const spB=mm.filter(t=>t.d<iso(ps)).reduce((a,t)=>a+t.a,0),spW=mm.filter(t=>t.d>=iso(ps)&&t.d<iso(we)).reduce((a,t)=>a+t.a,0);
-  const allowW=(bud-spB)/lfp*nW,restW=allowW-spW;
+  const guideDays=Math.min(7,left),periodRemaining=bud-spent,guideAmount=periodRemaining/left*guideDays;
+  const hasBudget=S.income>0||!!st0;
   let balTxt='<span style="color:var(--mut);font-size:14px;cursor:pointer">Ajoute ton solde de départ (Plan) pour voir ton solde total disponible.</span>';
   if(S.start){
     const d0=S.start.d,sdt=parseD(d0);let pays=0;
@@ -313,15 +311,18 @@ function render(){
   $('rs0').textContent=S.start?(st0?eur(S.start.a)+' au '+S.start.d.slice(8)+'/'+S.start.d.slice(5,7):'Hors période'):'Optionnel';
   const big=$('big');
   big.setAttribute('role',S.hide?'button':'text');big.tabIndex=S.hide?0:-1;
-  big.textContent=eur(restW);
-  big.style.color=restW<0?'var(--bad)':(allowW>0&&restW<allowW*.25?'var(--warn)':'var(--ok)');
+  big.textContent=eur(Math.abs(periodRemaining));
+  big.style.color=!hasBudget?'var(--mut)':(periodRemaining<0?'var(--bad)':'var(--ok)');
+  $('budget-label').textContent=hasBudget&&periodRemaining<0?'Budget dépassé de':'Reste jusqu'à la paie';
   const bd2=S.lastBk?Math.floor((t0-parseD(S.lastBk))/864e5):null;
   $('bkr').innerHTML=(S.tx.length>=5||S.lastBk)?(bd2==null?'<b style="color:var(--warn)">Pas encore de sauvegarde. Touche pour en faire une.</b>':`<span style="color:${bd2>30?'var(--warn)':'var(--mut)'}">Dernière sauvegarde : ${bd2<=0?"aujourd'hui":'il y a '+bd2+' jour'+(bd2>1?'s':'')}${bd2>30?'. Pense à en refaire une.':''}</span>`):'';
-  $('hbar').style.width=(allowW>0?Math.min(100,spW/allowW*100):(spW>0?100:0))+'%';
-  $('hbar').style.background=restW<0?'var(--bad)':'var(--acc)';
-  $('hsub').textContent=(S.income>0||st0)
-    ? `Tu peux dépenser ${eur(Math.max(allowW,0))} cette semaine${nW<7?` (${nW} jour${nW>1?'s':''})`:''}. Il reste ${eur(bud-spent)}${S.saving>0?' (épargne de '+eur(S.saving)+' déjà déduite)':''} pour ${left} jour${left>1?'s':''}, jusqu'à la paie du ${p2(e.getDate())}/${p2(e.getMonth()+1)}.`
-    : 'Renseigne tes revenus et tes charges fixes dans Plan pour calculer ton budget du jour.';
+  $('hbar').style.width=(hasBudget&&bud>0?Math.min(100,Math.max(0,spent)/bud*100):0)+'%';
+  $('hbar').style.background=hasBudget&&periodRemaining<0?'var(--bad)':'var(--acc)';
+  $('hsub').textContent=hasBudget
+    ? (periodRemaining<0
+      ? 'Le budget de la période est dépassé de '+eur(Math.abs(periodRemaining))+'. Il reste '+left+' jour'+(left>1?'s':'')+' avant la paie du '+p2(e.getDate())+'/'+p2(e.getMonth()+1)+'.'
+      : 'Repère pour les '+guideDays+' prochains jours : '+eur(guideAmount)+'. C’est une moyenne calculée sur le budget restant jusqu’à la paie du '+p2(e.getDate())+'/'+p2(e.getMonth()+1)+', pas une limite fixe.')
+    : 'Renseigne tes revenus et tes charges fixes dans Plan pour calculer ton budget jusqu’à la paie.';
   const dt=Math.round((e-sd)/864e5),el=Math.max(1,dt-left+1),pj=$('pj');
   if((S.income>0||st0)&&spent>0){
     const rate=spent/el,fin=bud-rate*dt,dd=p2(e.getDate())+'/'+p2(e.getMonth()+1);
@@ -509,7 +510,7 @@ $('sl').onclick=e=>{const b=e.target.closest('.del');if(!b)return;S.shop=S.shop.
 $('sclr').onclick=()=>{S.shop=S.shop.filter(x=>!x.ok);save();shop()};
 shop();
 const TIPS={
-"Reste à vivre cette semaine":"Ton budget de la semaine, du lundi au dimanche (ou jusqu'à la paie) : (revenus − charges fixes − épargne − dépenses des semaines précédentes) ÷ jours restants × jours de la semaine. Le solde total disponible = solde de départ + revenus − dépenses, charges fixes à venir déduites (estimation).",
+"Reste jusqu'à la paie":"Le gros chiffre indique le budget restant jusqu'à la prochaine paie. Le repère dessous répartit ce reste sur les 7 prochains jours (ou les jours restants si la paie arrive avant). Une grosse dépense réduit le budget total, mais le repère ne devient négatif que si le budget de la période est dépassé.",
 "Nouvelle dépense":"Tu peux choisir une autre date pour noter un oubli. Les dépenses récurrentes s'ajoutent toutes seules.",
 "Courbe de la période":"Ton budget restant jour après jour. Les pointillés montrent le rythme idéal pour finir à zéro.",
 "Projection de fin de période":"Estimation de ce qu'il te restera à la prochaine paie si tu continues à dépenser au même rythme.",
@@ -575,7 +576,7 @@ $('bcsv').onclick=async()=>{
 };
 $('bfile').onchange=e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{$('bk').value=String(rd.result);armedR=false;bm('Fichier chargé. Touche « Restaurer » deux fois pour confirmer.')};rd.readAsText(f)};
 const OB=[
-['👋','Bienvenue','Cette appli répond à une seule question : combien puis-je dépenser cette semaine sans stress ? Elle le calcule à partir de ta paie et de tes charges.'],
+['👋','Bienvenue','Cette appli répond à une seule question : combien puis-je dépenser jusqu'à ma prochaine paie sans stress ? Elle le calcule à partir de ta paie et de tes charges.'],
 ['🗓️','Commence par le Plan','Dans l\'onglet Plan, indique le jour et le montant de ta paie, puis tes charges fixes (loyer, factures…). Tu peux aussi fixer une épargne.'],
 ['🛒','Note tes dépenses','Sur l\'Accueil, saisis un montant et une catégorie en quelques secondes. Ta liste de courses peut s\'enregistrer en une seule dépense. Les petits ⓘ expliquent chaque fonction.'],
 ['🔒','Tes données restent chez toi','Rien n\'est envoyé ailleurs : tout reste sur ton téléphone. Pense à faire une sauvegarde de temps en temps, dans Réglages › Données.'],
